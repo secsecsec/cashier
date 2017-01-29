@@ -13,8 +13,14 @@ matrix:
   allow_failures:
     - go: 1.8rc2
 
-before_install:
-  - go get -v github.com/golang/lint/golint
+# cache:
+#   directories:
+#     - $GOPATH/src
+#     - $GOPATH/pkg
+
+# before_cache:
+# - rm -rf $GOPATH/src/github.com/nsheridan/cashier/*
+# - rm -rf $GOPATH/pkg/**/github.com/nsheridan/cashier
 
 install:
   - go version

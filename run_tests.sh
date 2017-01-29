@@ -14,3 +14,5 @@ if ! type -f golint > /dev/null; then
   go get -u github.com/golang/lint/golint
 fi
 go list ./... |grep -v vendor/ |xargs -L1 golint -set_exit_status
+git diff --exit-code
+git diff --cached --exit-code

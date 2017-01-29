@@ -67,7 +67,7 @@ func TestStartSession(t *testing.T) {
 	a.Contains(s.AuthURL, fmt.Sprintf("client_id=%s", oauthClientID))
 }
 
-func newGithub() (*Config, error) {
+func newGithub() (*Github, error) {
 	c := &config.Auth{
 		OauthClientID:     oauthClientID,
 		OauthClientSecret: oauthClientSecret,

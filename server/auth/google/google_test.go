@@ -63,7 +63,7 @@ func TestStartSession(t *testing.T) {
 	a.Contains(s.AuthURL, fmt.Sprintf("client_id=%s", oauthClientID))
 }
 
-func newGoogle() (*Config, error) {
+func newGoogle() (*Google, error) {
 	c := &config.Auth{
 		OauthClientID:     oauthClientID,
 		OauthClientSecret: oauthClientSecret,

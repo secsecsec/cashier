@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nsheridan/cashier/server/auth"
 	"github.com/nsheridan/cashier/server/config"
 	"github.com/stretchr/testify/assert"
 )
@@ -22,10 +21,9 @@ func TestNew(t *testing.T) {
 	a := assert.New(t)
 
 	p, _ := newGitlab()
-	g := p.(*Config)
-	a.Equal(g.config.ClientID, oauthClientID)
-	a.Equal(g.config.ClientSecret, oauthClientSecret)
-	a.Equal(g.config.RedirectURL, oauthCallbackURL)
+	a.Equal(p.config.ClientID, oauthClientID)
+	a.Equal(p.config.ClientSecret, oauthClientSecret)
+	a.Equal(p.config.RedirectURL, oauthCallbackURL)
 }
 
 func TestNewBrokenSiteURL(t *testing.T) {
@@ -83,7 +81,7 @@ func TestStartSession(t *testing.T) {
 	a.Contains(s.AuthURL, fmt.Sprintf("client_id=%s", oauthClientID))
 }
 
-func newGitlab() (auth.Provider, error) {
+func newGitlab() (*Gitlab, error) {
 	c := &config.Auth{
 		OauthClientID:     oauthClientID,
 		OauthClientSecret: oauthClientSecret,

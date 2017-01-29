@@ -15,9 +15,9 @@ const (
 	name = "gitlab"
 )
 
-// Config is an implementation of `auth.Provider` for authenticating using a
+// Gitlab is an implementation of `auth.Provider` for authenticating using a
 // Gitlab account.
-type Config struct {
+type Gitlab struct {
 	config    *oauth2.Config
 	baseurl   string
 	group     string
@@ -26,7 +26,7 @@ type Config struct {
 }
 
 // New creates a new Gitlab provider from a configuration.
-func New(c *config.Auth) (*Config, error) {
+func New(c *config.Auth) (*Gitlab, error) {
 	uw := make(map[string]bool)
 	for _, u := range c.UsersWhitelist {
 		uw[u] = true
@@ -47,7 +47,7 @@ func New(c *config.Auth) (*Config, error) {
 		}
 	}
 
-	return &Config{
+	return &Gitlab{
 		config: &oauth2.Config{
 			ClientID:     c.OauthClientID,
 			ClientSecret: c.OauthClientSecret,
@@ -68,12 +68,12 @@ func New(c *config.Auth) (*Config, error) {
 }
 
 // Name returns the name of the provider.
-func (c *Config) Name() string {
+func (c *Gitlab) Name() string {
 	return name
 }
 
 // Valid validates the oauth token.
-func (c *Config) Valid(token *oauth2.Token) bool {
+func (c *Gitlab) Valid(token *oauth2.Token) bool {
 	if !token.Valid() {
 		return false
 	}
@@ -105,24 +105,24 @@ func (c *Config) Valid(token *oauth2.Token) bool {
 // Revoke is a no-op revoke method. Gitlab doesn't allow token
 // revocation - tokens live for an hour.
 // Returns nil to satisfy the Provider interface.
-func (c *Config) Revoke(token *oauth2.Token) error {
+func (c *Gitlab) Revoke(token *oauth2.Token) error {
 	return nil
 }
 
 // StartSession retrieves an authentication endpoint from Gitlab.
-func (c *Config) StartSession(state string) *auth.Session {
+func (c *Gitlab) StartSession(state string) *auth.Session {
 	return &auth.Session{
 		AuthURL: c.config.AuthCodeURL(state),
 	}
 }
 
 // Exchange authorizes the session and returns an access token.
-func (c *Config) Exchange(code string) (*oauth2.Token, error) {
+func (c *Gitlab) Exchange(code string) (*oauth2.Token, error) {
 	return c.config.Exchange(oauth2.NoContext, code)
 }
 
 // Username retrieves the username of the Gitlab user.
-func (c *Config) Username(token *oauth2.Token) string {
+func (c *Gitlab) Username(token *oauth2.Token) string {
 	client := gitlabapi.NewOAuthClient(nil, token.AccessToken)
 	client.SetBaseURL(c.baseurl)
 	u, _, err := client.Users.CurrentUser()

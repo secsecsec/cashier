@@ -17,18 +17,18 @@ const (
 	name = "github"
 )
 
-// Config is an implementation of `auth.Provider` for authenticating using a
+// Github is an implementation of `auth.Provider` for authenticating using a
 // Github account.
-type Config struct {
+type Github struct {
 	config       *oauth2.Config
 	organization string
 	whitelist    map[string]bool
 }
 
-var _ auth.Provider = (*Config)(nil)
+var _ auth.Provider = (*Github)(nil)
 
 // New creates a new Github provider from a configuration.
-func New(c *config.Auth) (*Config, error) {
+func New(c *config.Auth) (*Github, error) {
 	uw := make(map[string]bool)
 	for _, u := range c.UsersWhitelist {
 		uw[u] = true
@@ -36,7 +36,7 @@ func New(c *config.Auth) (*Config, error) {
 	if c.ProviderOpts["organization"] == "" && len(uw) == 0 {
 		return nil, errors.New("either GitHub organization or users whitelist must be specified")
 	}
-	return &Config{
+	return &Github{
 		config: &oauth2.Config{
 			ClientID:     c.OauthClientID,
 			ClientSecret: c.OauthClientSecret,
@@ -53,17 +53,17 @@ func New(c *config.Auth) (*Config, error) {
 }
 
 // A new oauth2 http client.
-func (c *Config) newClient(token *oauth2.Token) *http.Client {
+func (c *Github) newClient(token *oauth2.Token) *http.Client {
 	return c.config.Client(oauth2.NoContext, token)
 }
 
 // Name returns the name of the provider.
-func (c *Config) Name() string {
+func (c *Github) Name() string {
 	return name
 }
 
 // Valid validates the oauth token.
-func (c *Config) Valid(token *oauth2.Token) bool {
+func (c *Github) Valid(token *oauth2.Token) bool {
 	if len(c.whitelist) > 0 && !c.whitelist[c.Username(token)] {
 		return false
 	}
@@ -86,19 +86,19 @@ func (c *Config) Valid(token *oauth2.Token) bool {
 // Revoke is a no-op revoke method. GitHub doesn't seem to allow token
 // revocation - tokens are indefinite and there are no refresh options etc.
 // Returns nil to satisfy the Provider interface.
-func (c *Config) Revoke(token *oauth2.Token) error {
+func (c *Github) Revoke(token *oauth2.Token) error {
 	return nil
 }
 
 // StartSession retrieves an authentication endpoint from Github.
-func (c *Config) StartSession(state string) *auth.Session {
+func (c *Github) StartSession(state string) *auth.Session {
 	return &auth.Session{
 		AuthURL: c.config.AuthCodeURL(state),
 	}
 }
 
 // Exchange authorizes the session and returns an access token.
-func (c *Config) Exchange(code string) (*oauth2.Token, error) {
+func (c *Github) Exchange(code string) (*oauth2.Token, error) {
 	t, err := c.config.Exchange(oauth2.NoContext, code)
 	if err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ func (c *Config) Exchange(code string) (*oauth2.Token, error) {
 }
 
 // Username retrieves the username portion of the user's email address.
-func (c *Config) Username(token *oauth2.Token) string {
+func (c *Github) Username(token *oauth2.Token) string {
 	client := githubapi.NewClient(c.newClient(token))
 	u, _, err := client.Users.Get("")
 	if err != nil {
