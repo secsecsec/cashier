@@ -60,7 +60,7 @@ func InstallCert(a agent.Agent, cert *ssh.Certificate, key Key) error {
 }
 
 // send the signing request to the CA.
-func send(s []byte, token, ca string, ValidateTLSCertificate bool) (*lib.SignResponse, error) {
+func send(s []byte, creds, ca string, ValidateTLSCertificate bool) (*lib.SignResponse, error) {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: !ValidateTLSCertificate},
 	}
@@ -76,7 +76,7 @@ func send(s []byte, token, ca string, ValidateTLSCertificate bool) (*lib.SignRes
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Authorization", creds)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func send(s []byte, token, ca string, ValidateTLSCertificate bool) (*lib.SignRes
 }
 
 // Sign sends the public key to the CA to be signed.
-func Sign(pub ssh.PublicKey, token string, conf *Config) (*ssh.Certificate, error) {
+func Sign(pub ssh.PublicKey, creds string, conf *Config) (*ssh.Certificate, error) {
 	validity, err := time.ParseDuration(conf.Validity)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func Sign(pub ssh.PublicKey, token string, conf *Config) (*ssh.Certificate, erro
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create sign request")
 	}
-	resp, err := send(s, token, conf.CA, conf.ValidateTLSCertificate)
+	resp, err := send(s, creds, conf.CA, conf.ValidateTLSCertificate)
 	if err != nil {
 		return nil, errors.Wrap(err, "error sending request to CA")
 	}

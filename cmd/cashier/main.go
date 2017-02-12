@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net"
@@ -9,6 +10,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/bgentry/speakeasy"
 	"github.com/nsheridan/cashier/client"
 	"github.com/pkg/browser"
 	"github.com/spf13/pflag"
@@ -23,7 +25,30 @@ var (
 	validity         = pflag.Duration("validity", time.Hour*24, "Key validity")
 	keytype          = pflag.String("key_type", "rsa", "Type of private key to generate - rsa, ecdsa or ed25519")
 	publicFilePrefix = pflag.String("public_file_prefix", "", "Prefix for filename for public key and cert (optional, no default)")
+	browserAuth      = pflag.Bool("browser_auth", true, "If true use a browser to obtain credentials from the CA")
 )
+
+const (
+	bearerAuthPrefix = "Bearer "
+	basicAuthPrefix  = "Basic "
+)
+
+func obtainCreds() string {
+	var creds string
+	if *browserAuth {
+		token := ""
+		fmt.Print("Enter token: ")
+		fmt.Scanln(&token)
+		creds = bearerAuthPrefix + token
+	} else {
+		username := ""
+		fmt.Print("Username: ")
+		fmt.Scanln(&username)
+		password, _ := speakeasy.Ask("Password: ")
+		creds = basicAuthPrefix + base64.StdEncoding.EncodeToString([]byte(username+":"+password))
+	}
+	return creds
+}
 
 func main() {
 	pflag.Parse()
@@ -32,21 +57,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing config file: %v\n", err)
 	}
-	fmt.Printf("Your browser has been opened to visit %s\n", c.CA)
-	if err := browser.OpenURL(c.CA); err != nil {
-		fmt.Println("Error launching web browser. Go to the link in your web browser")
+	if *browserAuth {
+		fmt.Printf("Your browser has been opened to visit %s\n", c.CA)
+		if err := browser.OpenURL(c.CA); err != nil {
+			fmt.Println("Error launching web browser. Go to the link in your web browser")
+		}
 	}
+	creds := obtainCreds()
 	fmt.Println("Generating new key pair")
 	priv, pub, err := client.GenerateKey(client.KeyType(c.Keytype), client.KeySize(c.Keysize))
 	if err != nil {
 		log.Fatalln("Error generating key pair: ", err)
 	}
 
-	fmt.Print("Enter token: ")
-	var token string
-	fmt.Scanln(&token)
-
-	cert, err := client.Sign(pub, token, c)
+	cert, err := client.Sign(pub, creds, c)
 	if err != nil {
 		log.Fatalln(err)
 	}
