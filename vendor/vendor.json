@@ -411,6 +411,12 @@
 			"revisionTime": "2016-12-11T22:23:15Z"
 		},
 		{
+			"checksumSHA1": "lfOuMiAdiqc/dalUSBTvD5ZMSzA=",
+			"path": "github.com/msteinert/pam",
+			"revision": "02ccfbfaf0cc627aa3aec8ef7ed5cfeec5b43f63",
+			"revisionTime": "2015-12-04T16:05:44Z"
+		},
+		{
 			"checksumSHA1": "hTzdsWWDTWFpX1FcF77fKgR0tEM=",
 			"path": "github.com/nsheridan/autocert-wkfs-cache",
 			"revision": "fafece944e938451c2e901fdc355b75f675562f1",

@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -16,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/msteinert/pam"
 	"github.com/pkg/errors"
 
 	"go4.org/wkfs"
@@ -44,6 +46,12 @@ import (
 
 var (
 	cfg = flag.String("config_file", "cashierd.conf", "Path to configuration file.")
+)
+
+const (
+	authHeader       = "Authorization"
+	bearerAuthPrefix = "Bearer"
+	basicAuthPrefix  = "Basic"
 )
 
 // appContext contains local context - cookiestore, authprovider, authsession etc.
@@ -138,30 +146,49 @@ func extractKey(r *http.Request) (*lib.SignRequest, error) {
 // signHandler handles the "/sign" path.
 // It unmarshals the client token to an oauth token, validates it and signs the provided public ssh key.
 func signHandler(a *appContext, w http.ResponseWriter, r *http.Request) (int, error) {
-	var t string
-	if ah := r.Header.Get("Authorization"); ah != "" {
-		if len(ah) > 6 && strings.ToUpper(ah[0:7]) == "BEARER " {
-			t = ah[7:]
+	var username string
+	ah := strings.Split(r.Header.Get(authHeader), " ")
+	switch ah[0] {
+	case bearerAuthPrefix:
+		token := &oauth2.Token{
+			AccessToken: strings.TrimPrefix(ah[1], bearerAuthPrefix),
 		}
-	}
-	if t == "" {
+		if !a.authprovider.Valid(token) {
+			return http.StatusUnauthorized, errors.New(http.StatusText(http.StatusUnauthorized))
+		}
+		username = a.authprovider.Username(token)
+		a.authprovider.Revoke(token) // We don't need this anymore.
+	case basicAuthPrefix:
+		login, _ := base64.StdEncoding.DecodeString(ah[1])
+		s := strings.Split(string(login), ":")
+		user, pass := s[0], s[1]
+		tx, err := pam.StartFunc("login", user, func(s pam.Style, msg string) (string, error) {
+			switch s {
+			case pam.PromptEchoOff:
+				return pass, nil
+			case pam.ErrorMsg:
+				log.Printf("pam error: %s", msg)
+				return "", nil
+			case pam.TextInfo:
+				log.Printf("pam info: %s", msg)
+			}
+			return "", fmt.Errorf("auth/pam: unsupported response %d: %s", s, msg)
+		})
+		if err != nil {
+			return http.StatusUnauthorized, errors.New(http.StatusText(http.StatusUnauthorized))
+		}
+		if err := tx.Authenticate(0); err != nil {
+			return http.StatusUnauthorized, errors.New(http.StatusText(http.StatusUnauthorized))
+		}
+		username = user
+	default:
 		return http.StatusUnauthorized, errors.New(http.StatusText(http.StatusUnauthorized))
 	}
-	token := &oauth2.Token{
-		AccessToken: t,
-	}
-	ok := a.authprovider.Valid(token)
-	if !ok {
-		return http.StatusUnauthorized, errors.New(http.StatusText(http.StatusUnauthorized))
-	}
-
 	// Sign the pubkey and issue the cert.
 	req, err := extractKey(r)
 	if err != nil {
 		return http.StatusBadRequest, errors.Wrap(err, "unable to extract key from request")
 	}
-	username := a.authprovider.Username(token)
-	a.authprovider.Revoke(token) // We don't need this anymore.
 	cert, err := a.sshKeySigner.SignUserKey(req, username)
 	if err != nil {
 		return http.StatusInternalServerError, errors.Wrap(err, "error signing key")
@@ -364,6 +391,8 @@ func main() {
 			}
 		}
 		l = tls.NewListener(l, tlsConfig)
+	} else {
+		log.Println("Warning: no TLS configuration found - this is not recommended")
 	}
 
 	if conf.Server.User != "" {
