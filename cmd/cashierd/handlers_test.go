@@ -26,44 +26,38 @@ import (
 	"github.com/stripe/krl"
 )
 
-func newContext(t *testing.T) *appContext {
-	f, err := ioutil.TempFile(os.TempDir(), "signing_key_")
-	if err != nil {
-		t.Error(err)
-	}
+var ctx *appContext
+
+func init() {
+	f, _ := ioutil.TempFile(os.TempDir(), "signing_key_")
 	defer os.Remove(f.Name())
 	f.Write(testdata.Priv)
 	f.Close()
-	if keysigner, err = signer.New(&config.SSH{
+	keysigner, _ = signer.New(&config.SSH{
 		SigningKey: f.Name(),
 		MaxAge:     "1h",
-	}); err != nil {
-		t.Error(err)
-	}
+	})
 	authprovider = testprovider.New()
 	certstore = store.NewMemoryStore()
-	return &appContext{
+	ctx = &appContext{
 		cookiestore: sessions.NewCookieStore([]byte("secret")),
 		authsession: &auth.Session{AuthURL: "https://www.example.com/auth"},
 	}
 }
 
 func TestLoginHandler(t *testing.T) {
-	t.Parallel()
 	req, _ := http.NewRequest("GET", "/auth/login", nil)
 	resp := httptest.NewRecorder()
-	loginHandler(newContext(t), resp, req)
+	loginHandler(ctx, resp, req)
 	if resp.Code != http.StatusFound && resp.Header().Get("Location") != "https://www.example.com/auth" {
 		t.Error("Unexpected response")
 	}
 }
 
 func TestCallbackHandler(t *testing.T) {
-	t.Parallel()
 	req, _ := http.NewRequest("GET", "/auth/callback", nil)
 	req.Form = url.Values{"state": []string{"state"}, "code": []string{"abcdef"}}
 	resp := httptest.NewRecorder()
-	ctx := newContext(t)
 	ctx.setAuthStateCookie(resp, req, "state")
 	callbackHandler(ctx, resp, req)
 	if resp.Code != http.StatusFound && resp.Header().Get("Location") != "/" {
@@ -72,10 +66,8 @@ func TestCallbackHandler(t *testing.T) {
 }
 
 func TestRootHandler(t *testing.T) {
-	t.Parallel()
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp := httptest.NewRecorder()
-	ctx := newContext(t)
 	tok := &oauth2.Token{
 		AccessToken: "XXX_TEST_TOKEN_STRING_XXX",
 		Expiry:      time.Now().Add(1 * time.Hour),
@@ -88,10 +80,8 @@ func TestRootHandler(t *testing.T) {
 }
 
 func TestRootHandlerNoSession(t *testing.T) {
-	t.Parallel()
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp := httptest.NewRecorder()
-	ctx := newContext(t)
 	rootHandler(ctx, resp, req)
 	if resp.Code != http.StatusSeeOther {
 		t.Errorf("Unexpected status: %s, wanted %s", http.StatusText(resp.Code), http.StatusText(http.StatusSeeOther))
@@ -99,14 +89,12 @@ func TestRootHandlerNoSession(t *testing.T) {
 }
 
 func TestSignRevoke(t *testing.T) {
-	t.Parallel()
 	s, _ := json.Marshal(&lib.SignRequest{
 		Key:        string(testdata.Pub),
 		ValidUntil: time.Now().UTC().Add(1 * time.Hour),
 	})
 	req, _ := http.NewRequest("POST", "/sign", bytes.NewReader(s))
 	resp := httptest.NewRecorder()
-	ctx := newContext(t)
 	req.Header.Set("Authorization", "Bearer abcdef")
 	signHandler(ctx, resp, req)
 	if resp.Code != http.StatusOK {
